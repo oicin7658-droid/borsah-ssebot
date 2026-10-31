@@ -1,0 +1,52 @@
+import streamlit as st
+import yfinance as yf
+
+st.set_page_config(page_title="BIST Fiyat Takibi", page_icon="📈")
+
+st.title("📈 BIST Fiyat Takibi")
+st.caption("Fiyat verileri gecikmeli veya eksik olabilir. Bu araç yatırım tavsiyesi değildir.")
+
+@st.cache_data(ttl=60)
+def get_latest_price(symbol: str):
+    history = yf.Ticker(symbol).history(period="5d", interval="15m")
+
+    if history.empty:
+        return None, None
+
+    latest = history.iloc[-1]
+    return float(latest["Close"]), history.index[-1]
+
+
+symbol = st.text_input("Hisse sembolü", value="THYAO.IS").strip().upper()
+
+col1, col2 = st.columns(2)
+with col1:
+    below = st.number_input("Bu fiyatın altına inerse uyar", min_value=0.0, value=300.0)
+with col2:
+    above = st.number_input("Bu fiyatın üstüne çıkarsa uyar", min_value=0.0, value=330.0)
+
+if st.button("Fiyatı kontrol et", type="primary"):
+    if not symbol:
+        st.error("Bir hisse sembolü gir.")
+    else:
+        with st.spinner("Fiyat verisi alınıyor..."):
+            try:
+                price, timestamp = get_latest_price(symbol)
+
+                if price is None:
+                    st.error("Fiyat alınamadı. Sembolü ve veri kaynağını kontrol et.")
+                else:
+                    st.metric(symbol, f"{price:.2f}")
+                    st.caption(f"Veri zamanı: {timestamp}")
+
+                    if below > 0 and price <= below:
+                        st.warning(f"Fiyat {below:.2f} veya altına indi.")
+                    elif above > 0 and price >= above:
+                        st.success(f"Fiyat {above:.2f} veya üstüne çıktı.")
+                    else:
+                        st.info("Belirlediğin alarm seviyelerine henüz ulaşmadı.")
+
+            except Exception as error:
+                st.error(f"Veri alınırken hata oluştu: {error}")
+
+st.caption("Yeni kontrol için tekrar “Fiyatı kontrol et” düğmesine bas.")
